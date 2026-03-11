@@ -58,6 +58,14 @@ npx jest                         # run unit tests
 ## Current state
 - Phase A complete: OBD core, Bluetooth, mock service, 21 unit tests passing
 - Phase B complete: Animated gauges, DeviceScan/Home/Settings screens, dark+light theme
+- App runs on device in mock mode ✓
+
+## Known build gotchas (already fixed)
+- Gradle must stay at **8.14.x** — Gradle 9 removed `IBM_SEMERU` field used by react-native-bluetooth-classic
+- `react-native-reanimated` v4 requires `react-native-worklets` as a separate package
+- Theme file is `src/theme/index.tsx` (not `.ts`) — JSX requires `.tsx`
+- SVG worklet functions need `'worklet'` directive: `polarToCartesian`, `arcPath` in `ArcGauge.tsx`
+- `usePermissions` skips BT permission dialog when `MOCK_MODE=true`
 
 ## Next — Phase 2 (GPS)
 - Install `@react-native-community/geolocation`
