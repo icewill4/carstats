@@ -1,5 +1,5 @@
 /** Set to true to use the mock ELM327 service during development */
-export const MOCK_MODE = true;
+export const MOCK_MODE = false;
 
 /** OBD PID polling interval in milliseconds (min 300ms to avoid ELM327 buffer overflow) */
 export const POLL_INTERVAL_MS = 500;

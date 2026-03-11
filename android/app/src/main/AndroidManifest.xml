@@ -18,9 +18,6 @@
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
 
-    <!-- GPS – Phase 2 (also needed for BT on Android 6–11) -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
       android:name=".MainApplication"

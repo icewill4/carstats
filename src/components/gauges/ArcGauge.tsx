@@ -1,6 +1,6 @@
 import React, {useEffect} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
-import Svg, {Circle, Path, Text as SvgText} from 'react-native-svg';
+import Svg, {Circle, Path} from 'react-native-svg';
 import Animated, {
   useAnimatedProps,
   useSharedValue,
@@ -20,6 +20,7 @@ function polarToCartesian(
   r: number,
   angleDeg: number,
 ) {
+  'worklet';
   const rad = ((angleDeg - 90) * Math.PI) / 180;
   return {
     x: cx + r * Math.cos(rad),
@@ -34,6 +35,7 @@ function arcPath(
   startDeg: number,
   endDeg: number,
 ): string {
+  'worklet';
   const start = polarToCartesian(cx, cy, r, endDeg);
   const end = polarToCartesian(cx, cy, r, startDeg);
   const largeArc = endDeg - startDeg > 180 ? 1 : 0;
