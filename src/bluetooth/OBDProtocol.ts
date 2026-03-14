@@ -7,6 +7,7 @@ import {
   parseResponseBytes,
   parseSpeed,
 } from './OBDPids';
+import {sendATCommand} from './elm327';
 import type {OBDReading} from '../types/obd.types';
 
 /**
@@ -80,6 +81,8 @@ export class OBDProtocol {
       fuelLevel: isErrorResponse(fuelRaw)
         ? null
         : parseFuelLevel(parseResponseBytes(fuelRaw)),
+      engineLoad: null,
+      fuelConsumption: null,
       timestamp: Date.now(),
     };
   }
@@ -96,49 +99,8 @@ export class OBDProtocol {
     return next;
   }
 
-  /**
-   * Send a command string (with \r terminator) and wait for the ELM327 `>`
-   * prompt character, buffering incoming bytes.
-   */
-  private async sendCommand(cmd: string): Promise<string> {
-    await this.transport.write(cmd + '\r');
-
-    return new Promise<string>((resolve, reject) => {
-      let buffer = '';
-      let timedOut = false;
-
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        reject(new Error(`OBD timeout waiting for response to: ${cmd}`));
-      }, COMMAND_TIMEOUT_MS);
-
-      const poll = async () => {
-        if (timedOut) return;
-        try {
-          const chunk = await this.transport.read();
-          buffer += chunk;
-          if (buffer.includes('>')) {
-            clearTimeout(timeout);
-            // Strip the prompt, echo, and ELM327 status messages like
-            // "SEARCHING..." that appear on the first PID query after AT SP 0
-            const cleaned = buffer
-              .replace('>', '')
-              .replace(cmd, '')
-              .replace(/SEARCHING\.\.\./gi, '')
-              .replace(/BUS INIT: \.\.\.OK/gi, '')
-              .trim();
-            resolve(cleaned);
-          } else {
-            // Keep polling for more bytes
-            setTimeout(poll, 20);
-          }
-        } catch (err) {
-          clearTimeout(timeout);
-          reject(err);
-        }
-      };
-
-      poll();
-    });
+  /** Send a command and wait for the ELM327 `>` prompt. */
+  private sendCommand(cmd: string): Promise<string> {
+    return sendATCommand(this.transport, cmd, COMMAND_TIMEOUT_MS);
   }
 }

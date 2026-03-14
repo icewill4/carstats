@@ -1,16 +1,18 @@
 import React from 'react';
-import {Text} from 'react-native';
+import {StatusBar, Text} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {DeviceScanScreen} from '../screens/DeviceScanScreen';
 import {HomeScreen} from '../screens/HomeScreen';
 import {SettingsScreen} from '../screens/SettingsScreen';
+import {CANSnifferScreen} from '../screens/CANSnifferScreen';
 import {useTheme} from '../theme';
 
 export type RootStackParamList = {
   DeviceScan: undefined;
   Main: undefined;
+  CANSniffer: undefined;
 };
 
 export type MainTabParamList = {
@@ -75,9 +77,19 @@ export function AppNavigator() {
           heavy: {fontFamily: 'System', fontWeight: '900'},
         },
       }}>
-      <Stack.Navigator screenOptions={{headerShown: false}}>
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+      />
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: {paddingTop: StatusBar.currentHeight ?? 0},
+        }}>
         <Stack.Screen name="DeviceScan" component={DeviceScanScreen} />
         <Stack.Screen name="Main" component={MainTabs} />
+        <Stack.Screen name="CANSniffer" component={CANSnifferScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

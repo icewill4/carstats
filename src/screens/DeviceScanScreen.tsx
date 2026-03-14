@@ -9,11 +9,13 @@ import {
 } from 'react-native';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
 import type {RootStackParamList} from '../navigation/AppNavigator';
-import {useBluetooth} from '../hooks/useBluetooth';
+import {useBluetooth, setProtocolInstances} from '../hooks/useBluetooth';
 import {usePermissions} from '../hooks/usePermissions';
 import {useBluetoothStore} from '../store/bluetoothStore';
 import {useSettingsStore} from '../store/settingsStore';
 import {useTheme} from '../theme';
+import {MockBluetoothTransport} from '../bluetooth/MockBluetoothService';
+import {OBDProtocol} from '../bluetooth/OBDProtocol';
 import type {BluetoothDevice} from '../types/obd.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DeviceScan'>;
@@ -73,6 +75,16 @@ export function DeviceScanScreen({navigation}: Props) {
     startBLEScan();
     setTimeout(() => setScanning(false), 15000);
   }, [startBLEScan]);
+
+  const handleDemo = useCallback(async () => {
+    const transport = new MockBluetoothTransport();
+    const protocol = new OBDProtocol(transport);
+    await protocol.initialize();
+    setProtocolInstances(protocol, null);
+    useBluetoothStore.getState().setConnectionState('connected');
+    useBluetoothStore.getState().setConnectedDevice('demo', 'Demo Mode');
+    navigation.replace('Main');
+  }, [navigation]);
 
   if (status === 'unknown') {
     return (
@@ -190,12 +202,21 @@ export function DeviceScanScreen({navigation}: Props) {
           </Text>
         </View>
       )}
+
+      <TouchableOpacity
+        style={[styles.demoButton, {borderColor: colors.border}]}
+        onPress={handleDemo}
+        disabled={isConnecting}>
+        <Text style={[styles.demoButtonText, {color: colors.textSecondary}]}>
+          Demo Mode
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {flex: 1, paddingTop: 24},
+  container: {flex: 1},
   centered: {flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32},
   emptyState: {alignItems: 'center', padding: 32},
   header: {fontSize: 22, fontWeight: '700', paddingHorizontal: 20, marginBottom: 6},
@@ -223,4 +244,13 @@ const styles = StyleSheet.create({
   primaryButtonText: {color: '#FFF', fontWeight: '700', fontSize: 15},
   errorBanner: {margin: 16, padding: 14, borderRadius: 10, borderWidth: 1},
   errorText: {fontSize: 13, lineHeight: 18},
+  demoButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderRadius: 10,
+  },
+  demoButtonText: {fontSize: 14, fontWeight: '600'},
 });

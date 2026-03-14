@@ -1,20 +1,26 @@
 import React, {useCallback} from 'react';
 import {Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View} from 'react-native';
 import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
-import type {MainTabParamList} from '../navigation/AppNavigator';
+import type {CompositeScreenProps} from '@react-navigation/native';
+import type {NativeStackScreenProps} from '@react-navigation/native-stack';
+import type {MainTabParamList, RootStackParamList} from '../navigation/AppNavigator';
 import {useBluetooth} from '../hooks/useBluetooth';
 import {useBluetoothStore} from '../store/bluetoothStore';
 import {useSettingsStore} from '../store/settingsStore';
 import {useTheme} from '../theme';
 import {MOCK_MODE} from '../constants/obd.constants';
 
-type Props = BottomTabScreenProps<MainTabParamList, 'Settings'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, 'Settings'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
-export function SettingsScreen(_props: Props) {
+export function SettingsScreen({navigation}: Props) {
   const {colors, isDark, toggleTheme} = useTheme();
   const {connectedDeviceName, connectedDeviceId} = useBluetoothStore();
   const {disconnect} = useBluetooth();
-  const {connectionMode, setConnectionMode} = useSettingsStore();
+  const {connectionMode, setConnectionMode, protocolMode, setProtocolMode} =
+    useSettingsStore();
 
   const handleDisconnect = useCallback(() => {
     Alert.alert(
@@ -80,6 +86,61 @@ export function SettingsScreen(_props: Props) {
             </TouchableOpacity>
           </View>
         </View>
+      </View>
+
+      {/* Protocol section */}
+      <Text style={[styles.sectionTitle, {color: colors.textSecondary}]}>PROTOCOL</Text>
+      <View style={[styles.card, {backgroundColor: surface, borderColor: border}]}>
+        <View style={styles.row}>
+          <View>
+            <Text style={[styles.rowLabel, {color: colors.text}]}>Data mode</Text>
+            <Text style={[styles.rowSubLabel, {color: colors.textSecondary}]}>
+              {protocolMode === 'can'
+                ? 'CAN bus direct (fast, car-specific)'
+                : 'OBD2 standard (universal, slower)'}
+            </Text>
+          </View>
+          <View style={styles.segmentedControl}>
+            <TouchableOpacity
+              style={[
+                styles.segment,
+                styles.segmentLeft,
+                protocolMode === 'obd2' && {backgroundColor: colors.speed},
+              ]}
+              onPress={() => setProtocolMode('obd2')}>
+              <Text
+                style={[
+                  styles.segmentText,
+                  {color: protocolMode === 'obd2' ? '#FFF' : colors.textSecondary},
+                ]}>
+                OBD2
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segment,
+                styles.segmentRight,
+                protocolMode === 'can' && {backgroundColor: colors.speed},
+              ]}
+              onPress={() => setProtocolMode('can')}>
+              <Text
+                style={[
+                  styles.segmentText,
+                  {color: protocolMode === 'can' ? '#FFF' : colors.textSecondary},
+                ]}>
+                CAN
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {protocolMode === 'can' && (
+          <TouchableOpacity
+            style={[styles.row, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: border}]}
+            onPress={() => navigation.navigate('CANSniffer')}>
+            <Text style={[styles.rowLabel, {color: colors.speed}]}>Open CAN Sniffer</Text>
+            <Text style={{color: colors.textSecondary, fontSize: 18}}>{'>'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Connection section */}
