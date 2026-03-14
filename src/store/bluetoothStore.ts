@@ -8,6 +8,7 @@ interface BluetoothStore {
   connectedDeviceName: string | null;
 
   setDevices: (devices: BluetoothDevice[]) => void;
+  addDevice: (device: BluetoothDevice) => void;
   setConnectionState: (state: ConnectionState) => void;
   setConnectedDevice: (id: string | null, name: string | null) => void;
 }
@@ -19,6 +20,12 @@ export const useBluetoothStore = create<BluetoothStore>(set => ({
   connectedDeviceName: null,
 
   setDevices: devices => set({devices}),
+  addDevice: device =>
+    set(state => ({
+      devices: state.devices.find(d => d.id === device.id)
+        ? state.devices
+        : [...state.devices, device],
+    })),
   setConnectionState: connectionState => set({connectionState}),
   setConnectedDevice: (connectedDeviceId, connectedDeviceName) =>
     set({connectedDeviceId, connectedDeviceName}),

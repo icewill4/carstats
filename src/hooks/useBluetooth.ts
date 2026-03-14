@@ -12,13 +12,23 @@ export function getProtocol(): OBDProtocol | null {
 }
 
 export function useBluetooth() {
-  const {setDevices, setConnectionState, setConnectedDevice} = useBluetoothStore();
+  const {setDevices, setConnectionState, setConnectedDevice, addDevice} =
+    useBluetoothStore();
   const discoveryRef = useRef(false);
 
   const loadBondedDevices = useCallback(async () => {
     const devices = await bluetoothService.getBondedDevices();
     setDevices(devices);
   }, [setDevices]);
+
+  const startBLEScan = useCallback(() => {
+    setDevices([]);
+    bluetoothService.startBLEScan(device => addDevice(device));
+  }, [setDevices, addDevice]);
+
+  const stopBLEScan = useCallback(() => {
+    bluetoothService.stopBLEScan();
+  }, []);
 
   const startDiscovery = useCallback(async () => {
     if (discoveryRef.current) return;
@@ -73,5 +83,13 @@ export function useBluetooth() {
     setConnectedDevice(null, null);
   }, [setConnectionState, setConnectedDevice]);
 
-  return {loadBondedDevices, startDiscovery, cancelDiscovery, connect, disconnect};
+  return {
+    loadBondedDevices,
+    startBLEScan,
+    stopBLEScan,
+    startDiscovery,
+    cancelDiscovery,
+    connect,
+    disconnect,
+  };
 }

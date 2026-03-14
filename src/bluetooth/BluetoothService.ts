@@ -1,8 +1,10 @@
 import RNBluetoothClassic from 'react-native-bluetooth-classic';
 import {MOCK_MODE} from '../constants/obd.constants';
 import {MockBluetoothService} from './MockBluetoothService';
+import {bleService} from './BLEService';
 import type {IBluetoothTransport} from './OBDProtocol';
 import type {BluetoothDevice} from '../types/obd.types';
+import {useSettingsStore} from '../store/settingsStore';
 
 /**
  * Adapter that wraps a react-native-bluetooth-classic device connection
@@ -16,26 +18,33 @@ class RNBTTransport implements IBluetoothTransport {
   }
 
   async read(): Promise<string> {
-    const available = await RNBluetoothClassic.available(this.deviceId);
+    const available = await RNBluetoothClassic.availableFromDevice(this.deviceId);
     if (!available) return '';
     const data = await RNBluetoothClassic.readFromDevice(this.deviceId);
-    return data ?? '';
+    // The native layer uses '>' as its delimiter and consumes it, so re-append
+    // it here so that OBDProtocol's buffer.includes('>') check still works.
+    return (data ?? '') + '>';
   }
 }
 
 /**
  * Main Bluetooth service.
- * Switches between real ELM327 hardware and MockBluetoothService based on MOCK_MODE.
+ * Delegates to BLEService or react-native-bluetooth-classic based on
+ * the connectionMode set in settingsStore.
+ * In MOCK_MODE, always uses MockBluetoothService regardless of mode.
  */
 class BluetoothService {
   private mock = new MockBluetoothService();
   private connectedDeviceId: string | null = null;
 
-  /** Returns all bonded (paired) Bluetooth devices. */
+  private get mode() {
+    return useSettingsStore.getState().connectionMode;
+  }
+
+  /** Returns all bonded (paired) devices — Classic only. BLE uses scanning. */
   async getBondedDevices(): Promise<BluetoothDevice[]> {
-    if (MOCK_MODE) {
-      return this.mock.getBondedDevices();
-    }
+    if (MOCK_MODE) return this.mock.getBondedDevices();
+    if (this.mode === 'ble') return [];
     const devices = await RNBluetoothClassic.getBondedDevices();
     return devices.map(d => ({
       id: d.address,
@@ -44,9 +53,19 @@ class BluetoothService {
     }));
   }
 
+  /** Start BLE scan — only valid in BLE mode. */
+  startBLEScan(onDeviceFound: (device: BluetoothDevice) => void): void {
+    bleService.startScan(onDeviceFound);
+  }
+
+  /** Stop BLE scan. */
+  stopBLEScan(): void {
+    bleService.stopScan();
+  }
+
   /** Start Bluetooth Classic discovery for nearby (unpaired) devices. */
   async startDiscovery(): Promise<BluetoothDevice[]> {
-    if (MOCK_MODE) return [];
+    if (MOCK_MODE || this.mode === 'ble') return [];
     const devices = await RNBluetoothClassic.startDiscovery();
     return devices.map(d => ({
       id: d.address,
@@ -55,14 +74,14 @@ class BluetoothService {
     }));
   }
 
-  /** Stop ongoing discovery. */
+  /** Stop ongoing Classic discovery. */
   async cancelDiscovery(): Promise<void> {
-    if (MOCK_MODE) return;
+    if (MOCK_MODE || this.mode === 'ble') return;
     await RNBluetoothClassic.cancelDiscovery();
   }
 
   /**
-   * Connect to a device by its MAC address (or mock ID).
+   * Connect to a device. Routes to BLE or Classic based on connectionMode.
    * Returns an IBluetoothTransport ready for use with OBDProtocol.
    */
   async connect(deviceId: string): Promise<IBluetoothTransport> {
@@ -72,7 +91,16 @@ class BluetoothService {
       return transport;
     }
 
-    await RNBluetoothClassic.connectToDevice(deviceId);
+    if (this.mode === 'ble') {
+      const transport = await bleService.connect(deviceId);
+      this.connectedDeviceId = deviceId;
+      return transport;
+    }
+
+    // delimiter:'>' tells the native Android layer to flush each response at the
+    // ELM327 prompt character rather than the default '\n', which ELM327 never
+    // appends after '>'.
+    await RNBluetoothClassic.connectToDevice(deviceId, {delimiter: '>'});
     this.connectedDeviceId = deviceId;
     return new RNBTTransport(deviceId);
   }
@@ -85,6 +113,12 @@ class BluetoothService {
       return;
     }
 
+    if (this.mode === 'ble') {
+      await bleService.disconnect();
+      this.connectedDeviceId = null;
+      return;
+    }
+
     if (this.connectedDeviceId) {
       await RNBluetoothClassic.disconnectFromDevice(this.connectedDeviceId);
       this.connectedDeviceId = null;
@@ -93,6 +127,7 @@ class BluetoothService {
 
   isConnected(): boolean {
     if (MOCK_MODE) return this.mock.isConnected();
+    if (this.mode === 'ble') return bleService.isConnected();
     return this.connectedDeviceId !== null;
   }
 

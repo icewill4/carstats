@@ -4,6 +4,7 @@ import type {BottomTabScreenProps} from '@react-navigation/bottom-tabs';
 import type {MainTabParamList} from '../navigation/AppNavigator';
 import {useBluetooth} from '../hooks/useBluetooth';
 import {useBluetoothStore} from '../store/bluetoothStore';
+import {useSettingsStore} from '../store/settingsStore';
 import {useTheme} from '../theme';
 import {MOCK_MODE} from '../constants/obd.constants';
 
@@ -13,6 +14,7 @@ export function SettingsScreen(_props: Props) {
   const {colors, isDark, toggleTheme} = useTheme();
   const {connectedDeviceName, connectedDeviceId} = useBluetoothStore();
   const {disconnect} = useBluetooth();
+  const {connectionMode, setConnectionMode} = useSettingsStore();
 
   const handleDisconnect = useCallback(() => {
     Alert.alert(
@@ -35,6 +37,51 @@ export function SettingsScreen(_props: Props) {
 
   return (
     <ScrollView style={[styles.container, {backgroundColor: bg}]} contentContainerStyle={styles.content}>
+      {/* Adapter section */}
+      <Text style={[styles.sectionTitle, {color: colors.textSecondary}]}>ADAPTER</Text>
+      <View style={[styles.card, {backgroundColor: surface, borderColor: border}]}>
+        <View style={styles.row}>
+          <View>
+            <Text style={[styles.rowLabel, {color: colors.text}]}>Adapter type</Text>
+            <Text style={[styles.rowSubLabel, {color: colors.textSecondary}]}>
+              {connectionMode === 'ble' ? 'Bluetooth 5.0 / BLE' : 'Bluetooth Classic (SPP)'}
+            </Text>
+          </View>
+          <View style={styles.segmentedControl}>
+            <TouchableOpacity
+              style={[
+                styles.segment,
+                styles.segmentLeft,
+                connectionMode === 'ble' && {backgroundColor: colors.speed},
+              ]}
+              onPress={() => setConnectionMode('ble')}>
+              <Text
+                style={[
+                  styles.segmentText,
+                  {color: connectionMode === 'ble' ? '#FFF' : colors.textSecondary},
+                ]}>
+                BLE
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segment,
+                styles.segmentRight,
+                connectionMode === 'classic' && {backgroundColor: colors.speed},
+              ]}
+              onPress={() => setConnectionMode('classic')}>
+              <Text
+                style={[
+                  styles.segmentText,
+                  {color: connectionMode === 'classic' ? '#FFF' : colors.textSecondary},
+                ]}>
+                Classic
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
       {/* Connection section */}
       <Text style={[styles.sectionTitle, {color: colors.textSecondary}]}>CONNECTION</Text>
       <View style={[styles.card, {backgroundColor: surface, borderColor: border}]}>
@@ -46,7 +93,7 @@ export function SettingsScreen(_props: Props) {
         </View>
         {connectedDeviceId && (
           <View style={[styles.row, {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: border}]}>
-            <Text style={[styles.rowLabel, {color: colors.text}]}>MAC Address</Text>
+            <Text style={[styles.rowLabel, {color: colors.text}]}>Address</Text>
             <Text style={[styles.rowValue, {color: colors.textSecondary}]}>{connectedDeviceId}</Text>
           </View>
         )}
@@ -121,6 +168,16 @@ const styles = StyleSheet.create({
   rowLabel: {fontSize: 16},
   rowSubLabel: {fontSize: 12, marginTop: 2},
   rowValue: {fontSize: 14},
+  segmentedControl: {flexDirection: 'row'},
+  segment: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#888',
+  },
+  segmentLeft: {borderTopLeftRadius: 8, borderBottomLeftRadius: 8, borderRightWidth: 0},
+  segmentRight: {borderTopRightRadius: 8, borderBottomRightRadius: 8},
+  segmentText: {fontSize: 13, fontWeight: '600'},
   disconnectButton: {
     paddingHorizontal: 16,
     paddingVertical: 14,

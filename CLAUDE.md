@@ -1,11 +1,12 @@
 # CarStats — Claude Instructions
 
 ## What this project is
-React Native Android app (RN 0.84) that connects to an ELM327 OBD2 adapter via **Bluetooth Classic (SPP)** and displays live car stats. Phase 2 adds GPS.
+React Native Android app (RN 0.84) that connects to an ELM327 OBD2 adapter via Bluetooth (BLE or Classic SPP) and displays live car stats. Phase 2 adds GPS.
 
 ## Stack
 - **Framework**: React Native CLI (no Expo — blocked for Bluetooth Classic)
-- **Bluetooth**: `react-native-bluetooth-classic` (SPP/RFCOMM)
+- **Bluetooth Classic**: `react-native-bluetooth-classic` (SPP/RFCOMM)
+- **Bluetooth BLE**: `react-native-ble-plx`
 - **State**: Zustand
 - **Navigation**: React Navigation (native-stack + bottom-tabs)
 - **UI / Gauges**: `react-native-svg` + `react-native-reanimated`
@@ -19,12 +20,13 @@ React Native Android app (RN 0.84) that connects to an ELM327 OBD2 adapter via *
 - Polling floor is **300ms** — never go below, ELM327 clones overflow
 - Buffer until `>` prompt — never split on newline for ELM327 responses
 - Keep `IBluetoothTransport` interface clean — `OBDProtocol` must never import from concrete BT implementations
+- `connectionMode` lives in `settingsStore` — read via `useSettingsStore.getState().connectionMode` in non-React code
 
 ## Project structure
 ```
 src/
-  bluetooth/     BluetoothService.ts, OBDProtocol.ts, OBDPids.ts, MockBluetoothService.ts
-  store/         bluetoothStore.ts, obdStore.ts
+  bluetooth/     BluetoothService.ts, BLEService.ts, OBDProtocol.ts, OBDPids.ts, MockBluetoothService.ts
+  store/         bluetoothStore.ts, obdStore.ts, settingsStore.ts
   hooks/         usePermissions.ts, useBluetooth.ts, useOBDPolling.ts
   screens/       DeviceScanScreen.tsx, HomeScreen.tsx, SettingsScreen.tsx
   components/    gauges/ (ArcGauge, Speedometer, RPMGauge, FuelGauge), ConnectionStatusBar.tsx
@@ -33,6 +35,18 @@ src/
   types/         obd.types.ts
   constants/     obd.constants.ts
 ```
+
+## Bluetooth architecture
+```
+IBluetoothTransport
+    ├── RNBTTransport       ← Bluetooth Classic (react-native-bluetooth-classic)
+    ├── BLETransport        ← BLE (react-native-ble-plx, inside BLEService.ts)
+    └── MockBluetoothTransport
+```
+- `BluetoothService` is the single entry point — delegates to BLE or Classic based on `settingsStore.connectionMode`
+- `BLEService` auto-discovers GATT write+notify characteristics (no UUID hardcoding)
+- BLE transport buffers incoming notifications; `read()` drains the buffer — keeps OBDProtocol unchanged
+- Classic transport: `availableFromDevice()` + `readFromDevice()` with `delimiter:'>'` set on connect
 
 ## OBD PID reference
 | PID | Bytes | Formula |
@@ -58,7 +72,8 @@ npx jest                         # run unit tests
 ## Current state
 - Phase A complete: OBD core, Bluetooth, mock service, 21 unit tests passing
 - Phase B complete: Animated gauges, DeviceScan/Home/Settings screens, dark+light theme
-- App runs on device in mock mode ✓
+- BLE + Classic dual-mode support added — user has a BLE 5.0 ELM327 adapter
+- App defaults to BLE mode; switchable to Classic via Settings screen
 
 ## Known build gotchas (already fixed)
 - Gradle must stay at **8.14.x** — Gradle 9 removed `IBM_SEMERU` field used by react-native-bluetooth-classic
@@ -66,6 +81,8 @@ npx jest                         # run unit tests
 - Theme file is `src/theme/index.tsx` (not `.ts`) — JSX requires `.tsx`
 - SVG worklet functions need `'worklet'` directive: `polarToCartesian`, `arcPath` in `ArcGauge.tsx`
 - `usePermissions` skips BT permission dialog when `MOCK_MODE=true`
+- Classic transport: use `availableFromDevice()` not `available()` — the latter doesn't exist
+- Classic transport: set `delimiter:'>'` on `connectToDevice` — ELM327 never appends `\n` after `>`; re-append `>` in JS after read since native layer consumes the delimiter
 
 ## Next — Phase 2 (GPS)
 - Install `@react-native-community/geolocation`
