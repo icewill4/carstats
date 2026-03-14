@@ -33,8 +33,8 @@ export function useOBDPolling() {
       try {
         const reading = await protocol.pollReading();
         updateReading(reading);
-      } catch {
-        // Silently ignore polling errors — connection issue will surface via BT events
+      } catch (err) {
+        console.warn('[OBDPolling] pollReading failed:', err);
       }
     }, POLL_INTERVAL_MS);
   }, [stopPolling, updateReading]);

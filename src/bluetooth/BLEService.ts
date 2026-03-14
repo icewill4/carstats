@@ -17,6 +17,7 @@ class BLETransport implements IBluetoothTransport {
     private serviceUUID: string,
     private writeCharUUID: string,
     private notifyCharUUID: string,
+    private writeWithResponse: boolean,
   ) {}
 
   /** Subscribe to GATT notifications — must be called once after connect. */
@@ -41,12 +42,21 @@ class BLETransport implements IBluetoothTransport {
 
   async write(data: string): Promise<void> {
     const encoded = btoa(data);
-    await this.manager.writeCharacteristicWithoutResponseForDevice(
-      this.deviceId,
-      this.serviceUUID,
-      this.writeCharUUID,
-      encoded,
-    );
+    if (this.writeWithResponse) {
+      await this.manager.writeCharacteristicWithResponseForDevice(
+        this.deviceId,
+        this.serviceUUID,
+        this.writeCharUUID,
+        encoded,
+      );
+    } else {
+      await this.manager.writeCharacteristicWithoutResponseForDevice(
+        this.deviceId,
+        this.serviceUUID,
+        this.writeCharUUID,
+        encoded,
+      );
+    }
   }
 
   async read(): Promise<string> {
@@ -103,7 +113,7 @@ export class BLEService {
     });
     await device.discoverAllServicesAndCharacteristics();
 
-    const {serviceUUID, writeCharUUID, notifyCharUUID} =
+    const {serviceUUID, writeCharUUID, notifyCharUUID, writeWithResponse} =
       await this.discoverOBDCharacteristics(device);
 
     this.connectedDeviceId = deviceId;
@@ -113,6 +123,7 @@ export class BLEService {
       serviceUUID,
       writeCharUUID,
       notifyCharUUID,
+      writeWithResponse,
     );
     this.activeTransport.startNotifications();
     return this.activeTransport;
@@ -144,6 +155,7 @@ export class BLEService {
     serviceUUID: string;
     writeCharUUID: string;
     notifyCharUUID: string;
+    writeWithResponse: boolean;
   }> {
     const SKIP_SERVICES = new Set(['1800', '1801', '180a']);
 
@@ -166,6 +178,7 @@ export class BLEService {
             serviceUUID: service.uuid,
             writeCharUUID: c.uuid,
             notifyCharUUID: c.uuid,
+            writeWithResponse: !c.isWritableWithoutResponse,
           };
         }
         if (canWrite) writeChar = c;
@@ -177,6 +190,7 @@ export class BLEService {
           serviceUUID: service.uuid,
           writeCharUUID: writeChar.uuid,
           notifyCharUUID: notifyChar.uuid,
+          writeWithResponse: !writeChar.isWritableWithoutResponse,
         };
       }
     }

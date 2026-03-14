@@ -24,7 +24,7 @@ const AT_INIT_SEQUENCE = [
   'AT Z', // Reset
   'AT E0', // Echo off
   'AT L0', // Linefeeds off
-  'AT S0', // Spaces off
+  'AT S1', // Spaces on — parser expects space-separated hex bytes
   'AT H0', // Headers off
   'AT SP 0', // Auto-detect OBD protocol
   'AT AT 1', // Adaptive timing mode 1
@@ -67,6 +67,8 @@ export class OBDProtocol {
       this.query(PIDS.RPM),
       this.query(PIDS.FUEL_LEVEL),
     ]);
+
+    console.log('[OBD] raw responses:', JSON.stringify({speedRaw, rpmRaw, fuelRaw}));
 
     return {
       speed: isErrorResponse(speedRaw)
@@ -117,10 +119,13 @@ export class OBDProtocol {
           buffer += chunk;
           if (buffer.includes('>')) {
             clearTimeout(timeout);
-            // Strip the prompt and any leading echo of the command
+            // Strip the prompt, echo, and ELM327 status messages like
+            // "SEARCHING..." that appear on the first PID query after AT SP 0
             const cleaned = buffer
               .replace('>', '')
               .replace(cmd, '')
+              .replace(/SEARCHING\.\.\./gi, '')
+              .replace(/BUS INIT: \.\.\.OK/gi, '')
               .trim();
             resolve(cleaned);
           } else {
